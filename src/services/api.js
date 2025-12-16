@@ -1,4 +1,6 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+// In production, API is served from same origin (no CORS needed)
+// In development, use localhost:3001
+const API_BASE = import.meta.env.PROD ? '' : (import.meta.env.VITE_API_URL || 'http://localhost:3001')
 
 class ApiService {
   async fetch(endpoint, options = {}) {

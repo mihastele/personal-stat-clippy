@@ -1,13 +1,18 @@
 {
   "name": "personal-stat-clippy",
   "private": true,
-  "version": "0.0.1",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "docker:build": "docker build -t statclippy .",
+    "docker:run": "docker run -p 3001:3001 -v statclippy_data:/app/data statclippy",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
   },
   "dependencies": {
     "react": "^18.3.1",

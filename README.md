@@ -118,6 +118,52 @@ Access the backend admin panel at `http://localhost:3001/admin` to:
 - Trigger manual syncs
 - Monitor activity
 
+## Docker Deployment
+
+### Quick Start with Docker
+
+```bash
+# Build and run with Docker Compose
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop
+docker-compose down
+```
+
+The app will be available at **http://localhost:3001**
+
+### Manual Docker Build
+
+```bash
+# Build the image
+docker build -t statclippy .
+
+# Run the container
+docker run -d \
+  -p 3001:3001 \
+  -v statclippy_data:/app/data \
+  --name statclippy \
+  statclippy
+```
+
+### Docker Architecture
+
+The Docker image uses a multi-stage build:
+1. **Stage 1**: Builds the React frontend with Vite
+2. **Stage 2**: Installs backend Node.js dependencies
+3. **Stage 3**: Combines both into a minimal production image
+
+Features:
+- **Single container** serves both frontend and API
+- **No CORS issues** - frontend and API on same origin
+- **Persistent data** - SQLite database stored in Docker volume
+- **Non-root user** for security
+- **Health checks** for container orchestration
+- **~150MB** final image size
+
 ## Project Structure
 
 ```

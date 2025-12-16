@@ -506,10 +506,35 @@ app.post('/api/sync/spotify', async (req, res) => {
 
 // Serve admin GUI
 app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'))
+  const adminPath = process.env.NODE_ENV === 'production'
+    ? path.join(__dirname, 'admin', 'admin.html')
+    : path.join(__dirname, 'public', 'admin.html')
+  res.sendFile(adminPath)
 })
 
-app.listen(PORT, () => {
+// Production: Serve frontend static files
+if (process.env.NODE_ENV === 'production') {
+  const publicPath = path.join(__dirname, 'public')
+  
+  // Serve static files
+  app.use(express.static(publicPath))
+  
+  // SPA fallback - serve index.html for all non-API routes
+  app.get('*', (req, res) => {
+    // Don't catch API routes or admin
+    if (req.path.startsWith('/api') || req.path === '/admin') {
+      return res.status(404).json({ error: 'Not found' })
+    }
+    res.sendFile(path.join(publicPath, 'index.html'))
+  })
+  
+  console.log('📦 Running in production mode - serving frontend from /public')
+}
+
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 StatClippy Server running on http://localhost:${PORT}`)
   console.log(`📊 Admin GUI available at http://localhost:${PORT}/admin`)
+  if (process.env.NODE_ENV === 'production') {
+    console.log(`🌐 Frontend available at http://localhost:${PORT}`)
+  }
 })
