@@ -61,9 +61,6 @@ export async function getArtist(artistId, accessToken) {
   return spotifyFetch(`/artists/${artistId}`, accessToken)
 }
 
-export async function getTopTracks(artistId, market, accessToken) {
-  return spotifyFetch(`/artists/${artistId}/top-tracks?market=${market}`, accessToken)
-}
 
 // For full user data, you need OAuth 2.0 Authorization Code Flow
 // This requires user login and redirect handling
