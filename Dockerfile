@@ -45,9 +45,6 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 
-# Install dumb-init for proper signal handling in containers
-RUN apk add --no-cache dumb-init
-
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S statclippy -u 1001
@@ -82,9 +79,6 @@ EXPOSE 3001
 # Health check endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/stats/dashboard || exit 1
-
-# Use dumb-init as entrypoint for proper signal handling
-ENTRYPOINT ["dumb-init", "--"]
 
 # Start the Node.js server
 CMD ["node", "index.js"]
