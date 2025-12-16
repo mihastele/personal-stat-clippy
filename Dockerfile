@@ -38,6 +38,40 @@ COPY server/package*.json ./
 # Install production dependencies only
 RUN npm ci --omit=dev
 
+FROM node:20-alpine AS backend
+
+WORKDIR /app
+
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S statclippy -u 1001
+
+COPY --from=backend-builder /app/node_modules ./node_modules
+
+COPY server/index.js ./index.js
+COPY server/services ./services
+
+RUN mkdir -p admin
+COPY server/public/admin.html ./admin/admin.html
+
+RUN mkdir -p data && chown -R statclippy:nodejs /app
+
+USER statclippy
+
+ENV NODE_ENV=production
+ENV PORT=3001
+ENV SERVE_FRONTEND=false
+
+EXPOSE 3001
+
+CMD ["node", "index.js"]
+
+FROM nginx:1.27-alpine AS frontend
+
+COPY --from=frontend-builder /app/dist /usr/share/nginx/html
+COPY nginx/default.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
 # ===========================================
 # Stage 3: Production image
 # ===========================================

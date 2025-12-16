@@ -18,6 +18,9 @@ const __dirname = path.dirname(__filename)
 
 const app = express()
 const PORT = process.env.PORT || 3001
+const SERVE_FRONTEND = process.env.SERVE_FRONTEND !== 'false'
+
+app.set('trust proxy', true)
 
 // Initialize SQLite database
 const db = new Database(path.join(__dirname, 'data', 'stats.db'))
@@ -218,7 +221,9 @@ if (!defaultUser) {
 // Middleware
 app.use(cors())
 app.use(express.json())
-app.use(express.static(path.join(__dirname, 'public')))
+if (SERVE_FRONTEND) {
+  app.use(express.static(path.join(__dirname, 'public')))
+}
 
 // API Routes
 
@@ -434,8 +439,8 @@ app.get('/api/auth/spotify', (req, res) => {
   if (!config?.client_id) {
     return res.status(400).json({ success: false, message: 'Spotify client ID not configured' })
   }
-  
-  const redirectUri = `http://localhost:${PORT}/api/auth/spotify/callback`
+
+  const redirectUri = `${req.protocol}://${req.get('host')}/api/auth/spotify/callback`
   const scopes = ['user-read-recently-played', 'user-top-read', 'user-read-playback-state']
   const authUrl = getAuthUrl(config.client_id, redirectUri, scopes)
   
@@ -450,8 +455,8 @@ app.get('/api/auth/spotify/callback', async (req, res) => {
     if (!config?.client_id || !config?.client_secret) {
       return res.status(400).send('Spotify credentials not configured')
     }
-    
-    const redirectUri = `http://localhost:${PORT}/api/auth/spotify/callback`
+
+    const redirectUri = `${req.protocol}://${req.get('host')}/api/auth/spotify/callback`
     const tokens = await exchangeCode(code, config.client_id, config.client_secret, redirectUri)
     
     // Store tokens
@@ -513,7 +518,7 @@ app.get('/admin', (req, res) => {
 })
 
 // Production: Serve frontend static files
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === 'production' && SERVE_FRONTEND) {
   const publicPath = path.join(__dirname, 'public')
   
   // Serve static files

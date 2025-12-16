@@ -1,18 +1,18 @@
-version: '3.8'
-
 services:
-  statclippy:
+  backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: statclippy
-    ports:
-      - "3001:3001"
+      target: backend
+    container_name: statclippy-backend
+    init: true
+    expose:
+      - "3001"
     environment:
       - NODE_ENV=production
       - PORT=3001
+      - SERVE_FRONTEND=false
     volumes:
-      # Persist SQLite database
       - statclippy_data:/app/data
     restart: unless-stopped
     healthcheck:
@@ -21,6 +21,18 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend
+    container_name: statclippy-frontend
+    ports:
+      - "3001:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
 
 volumes:
   statclippy_data:
