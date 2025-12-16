@@ -5,6 +5,12 @@ import { fileURLToPath } from 'url'
 import Database from 'better-sqlite3'
 import dotenv from 'dotenv'
 
+// API Services
+import { syncChessData } from './services/chessApi.js'
+import { syncGitHubData } from './services/githubApi.js'
+import { syncSteamData } from './services/steamApi.js'
+import { syncSpotifyData, getAuthUrl, exchangeCode, refreshAccessToken } from './services/spotifyApi.js'
+
 dotenv.config()
 
 const __filename = fileURLToPath(import.meta.url)
@@ -348,25 +354,154 @@ app.post('/api/activity', (req, res) => {
   res.json({ success: true })
 })
 
-// Sync endpoints (placeholders for real API integration)
-app.post('/api/sync/spotify', async (req, res) => {
-  // TODO: Implement real Spotify API sync
-  res.json({ success: true, message: 'Spotify sync triggered (placeholder)' })
-})
+// Sync endpoints - Real API integrations
 
-app.post('/api/sync/steam', async (req, res) => {
-  // TODO: Implement real Steam API sync
-  res.json({ success: true, message: 'Steam sync triggered (placeholder)' })
-})
-
-app.post('/api/sync/github', async (req, res) => {
-  // TODO: Implement real GitHub API sync
-  res.json({ success: true, message: 'GitHub sync triggered (placeholder)' })
-})
-
+// Chess.com Sync (Public API - no auth needed)
 app.post('/api/sync/chess', async (req, res) => {
-  // TODO: Implement real Chess.com API sync
-  res.json({ success: true, message: 'Chess.com sync triggered (placeholder)' })
+  try {
+    const config = db.prepare('SELECT api_key FROM api_configs WHERE service_name = ?').get('chess')
+    const username = config?.api_key // We store the username in api_key field
+    
+    if (!username) {
+      return res.status(400).json({ success: false, message: 'Chess.com username not configured. Go to Settings to add it.' })
+    }
+    
+    const result = await syncChessData(username, db)
+    
+    // Log activity
+    db.prepare('INSERT INTO activity_log (user_id, platform, action, detail) VALUES (?, ?, ?, ?)')
+      .run(1, 'chess', 'Synced data', `Rating: ${result.rating.rapid}`)
+    
+    res.json({ success: true, message: 'Chess.com data synced!', data: result })
+  } catch (error) {
+    console.error('Chess sync error:', error)
+    res.status(500).json({ success: false, message: error.message })
+  }
+})
+
+// GitHub Sync
+app.post('/api/sync/github', async (req, res) => {
+  try {
+    const config = db.prepare('SELECT api_key, client_id FROM api_configs WHERE service_name = ?').get('github')
+    const username = config?.client_id // We store username in client_id
+    const token = config?.api_key // Personal access token (optional)
+    
+    if (!username) {
+      return res.status(400).json({ success: false, message: 'GitHub username not configured. Go to Settings to add it.' })
+    }
+    
+    const result = await syncGitHubData(username, token, db)
+    
+    // Log activity
+    db.prepare('INSERT INTO activity_log (user_id, platform, action, detail) VALUES (?, ?, ?, ?)')
+      .run(1, 'github', 'Synced data', `${result.stats.repos} repos, ${result.stats.stars} stars`)
+    
+    res.json({ success: true, message: 'GitHub data synced!', data: result })
+  } catch (error) {
+    console.error('GitHub sync error:', error)
+    res.status(500).json({ success: false, message: error.message })
+  }
+})
+
+// Steam Sync
+app.post('/api/sync/steam', async (req, res) => {
+  try {
+    const config = db.prepare('SELECT api_key, client_id FROM api_configs WHERE service_name = ?').get('steam')
+    const apiKey = config?.api_key
+    const steamId = config?.client_id // Steam ID stored in client_id
+    
+    if (!apiKey || !steamId) {
+      return res.status(400).json({ success: false, message: 'Steam API key and Steam ID not configured. Go to Settings to add them.' })
+    }
+    
+    const result = await syncSteamData(steamId, apiKey, db)
+    
+    // Log activity
+    db.prepare('INSERT INTO activity_log (user_id, platform, action, detail) VALUES (?, ?, ?, ?)')
+      .run(1, 'steam', 'Synced data', `${result.stats.totalGames} games, ${result.stats.totalPlaytime}h played`)
+    
+    res.json({ success: true, message: 'Steam data synced!', data: result })
+  } catch (error) {
+    console.error('Steam sync error:', error)
+    res.status(500).json({ success: false, message: error.message })
+  }
+})
+
+// Spotify OAuth flow
+app.get('/api/auth/spotify', (req, res) => {
+  const config = db.prepare('SELECT client_id FROM api_configs WHERE service_name = ?').get('spotify')
+  
+  if (!config?.client_id) {
+    return res.status(400).json({ success: false, message: 'Spotify client ID not configured' })
+  }
+  
+  const redirectUri = `http://localhost:${PORT}/api/auth/spotify/callback`
+  const scopes = ['user-read-recently-played', 'user-top-read', 'user-read-playback-state']
+  const authUrl = getAuthUrl(config.client_id, redirectUri, scopes)
+  
+  res.redirect(authUrl)
+})
+
+app.get('/api/auth/spotify/callback', async (req, res) => {
+  try {
+    const { code } = req.query
+    const config = db.prepare('SELECT client_id, client_secret FROM api_configs WHERE service_name = ?').get('spotify')
+    
+    if (!config?.client_id || !config?.client_secret) {
+      return res.status(400).send('Spotify credentials not configured')
+    }
+    
+    const redirectUri = `http://localhost:${PORT}/api/auth/spotify/callback`
+    const tokens = await exchangeCode(code, config.client_id, config.client_secret, redirectUri)
+    
+    // Store tokens
+    db.prepare('UPDATE api_configs SET api_key = ?, enabled = 1 WHERE service_name = ?')
+      .run(tokens.refresh_token, 'spotify')
+    
+    // Store access token temporarily for immediate sync
+    db.prepare(`INSERT OR REPLACE INTO connected_services (user_id, service_name, access_token, refresh_token) VALUES (?, ?, ?, ?)`)
+      .run(1, 'spotify', tokens.access_token, tokens.refresh_token)
+    
+    res.send('<html><body><h1>Spotify Connected!</h1><p>You can close this window and return to the admin panel.</p><script>window.close()</script></body></html>')
+  } catch (error) {
+    console.error('Spotify auth error:', error)
+    res.status(500).send('Failed to connect Spotify: ' + error.message)
+  }
+})
+
+// Spotify Sync
+app.post('/api/sync/spotify', async (req, res) => {
+  try {
+    const service = db.prepare('SELECT access_token, refresh_token FROM connected_services WHERE service_name = ?').get('spotify')
+    const config = db.prepare('SELECT client_id, client_secret FROM api_configs WHERE service_name = ?').get('spotify')
+    
+    if (!service?.refresh_token || !config?.client_id) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Spotify not connected. Click "Connect Spotify" to authorize.',
+        needsAuth: true,
+        authUrl: `/api/auth/spotify`
+      })
+    }
+    
+    // Refresh the access token
+    const tokens = await refreshAccessToken(service.refresh_token, config.client_id, config.client_secret)
+    
+    // Update stored access token
+    db.prepare('UPDATE connected_services SET access_token = ? WHERE service_name = ?')
+      .run(tokens.access_token, 'spotify')
+    
+    const result = await syncSpotifyData(tokens.access_token, db)
+    
+    // Log activity
+    db.prepare('INSERT INTO activity_log (user_id, platform, action, detail) VALUES (?, ?, ?, ?)')
+      .run(1, 'spotify', 'Synced data', `${result.stats.songs} tracks analyzed`)
+    
+    res.json({ success: true, message: 'Spotify data synced!', data: result })
+  } catch (error) {
+    console.error('Spotify sync error:', error)
+    res.status(500).json({ success: false, message: error.message })
+  }
 })
 
 // Serve admin GUI

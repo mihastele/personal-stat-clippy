@@ -281,9 +281,17 @@
               <h3 class="text-lg font-semibold">Steam</h3>
             </div>
             <form class="config-form" data-service="steam">
-              <div class="mb-4">
-                <label class="block text-sm text-gray-400 mb-2">API Key</label>
-                <input type="password" name="api_key" class="w-full px-4 py-2 bg-dark-900 border border-gray-600 rounded-lg focus:border-blue-500 focus:outline-none">
+              <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label class="block text-sm text-gray-400 mb-2">Steam ID (64-bit)</label>
+                  <input type="text" name="client_id" class="w-full px-4 py-2 bg-dark-900 border border-gray-600 rounded-lg focus:border-blue-500 focus:outline-none" placeholder="76561198xxxxxxxxx">
+                  <p class="text-xs text-gray-500 mt-1">Find at steamid.io</p>
+                </div>
+                <div>
+                  <label class="block text-sm text-gray-400 mb-2">API Key</label>
+                  <input type="password" name="api_key" class="w-full px-4 py-2 bg-dark-900 border border-gray-600 rounded-lg focus:border-blue-500 focus:outline-none">
+                  <p class="text-xs text-gray-500 mt-1">Get from steamcommunity.com/dev</p>
+                </div>
               </div>
               <div class="flex items-center justify-between">
                 <label class="flex items-center gap-2 cursor-pointer">
@@ -304,9 +312,16 @@
               <h3 class="text-lg font-semibold">GitHub</h3>
             </div>
             <form class="config-form" data-service="github">
-              <div class="mb-4">
-                <label class="block text-sm text-gray-400 mb-2">Personal Access Token</label>
-                <input type="password" name="api_key" class="w-full px-4 py-2 bg-dark-900 border border-gray-600 rounded-lg focus:border-purple-500 focus:outline-none">
+              <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label class="block text-sm text-gray-400 mb-2">GitHub Username</label>
+                  <input type="text" name="client_id" class="w-full px-4 py-2 bg-dark-900 border border-gray-600 rounded-lg focus:border-purple-500 focus:outline-none" placeholder="octocat">
+                </div>
+                <div>
+                  <label class="block text-sm text-gray-400 mb-2">Personal Access Token (optional)</label>
+                  <input type="password" name="api_key" class="w-full px-4 py-2 bg-dark-900 border border-gray-600 rounded-lg focus:border-purple-500 focus:outline-none">
+                  <p class="text-xs text-gray-500 mt-1">For private repos & higher rate limits</p>
+                </div>
               </div>
               <div class="flex items-center justify-between">
                 <label class="flex items-center gap-2 cursor-pointer">
@@ -419,12 +434,26 @@
     // Sync service
     async function syncService(service) {
       try {
+        showToast(`Syncing ${service}...`, false)
         const res = await fetch(`${API_BASE}/api/sync/${service}`, { method: 'POST' })
         const data = await res.json()
+        
+        if (data.needsAuth && data.authUrl) {
+          // Open auth window for OAuth services like Spotify
+          window.open(data.authUrl, '_blank', 'width=500,height=700')
+          showToast(data.message, true)
+          return
+        }
+        
+        if (!data.success) {
+          showToast(data.message || `Failed to sync ${service}`, true)
+          return
+        }
+        
         showToast(data.message || `${service} synced!`)
         loadDashboard()
       } catch (e) {
-        showToast(`Failed to sync ${service}`, true)
+        showToast(`Failed to sync ${service}: ${e.message}`, true)
       }
     }
 
