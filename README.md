@@ -4,6 +4,12 @@ A modern, cross-platform web application that provides a centralized dashboard t
 
 ![StatClippy Dashboard](https://api.dicebear.com/7.x/shapes/svg?seed=statclippy)
 
+## Architecture
+
+This project consists of two parts:
+- **Frontend** (`/`) - React dashboard that displays stats
+- **Backend** (`/server`) - Express.js API server with SQLite database and admin GUI
+
 ## Features
 
 ### 🎵 Music Stats (Spotify)
@@ -64,43 +70,95 @@ git clone https://github.com/yourusername/personal-stat-clippy.git
 cd personal-stat-clippy
 ```
 
-2. Install dependencies:
+2. Install frontend dependencies:
 ```bash
 npm install
 ```
 
-3. Start the development server:
+3. Install backend dependencies:
+```bash
+cd server
+npm install
+cd ..
+```
+
+4. Copy the environment file:
+```bash
+cp .env.example .env
+```
+
+### Running the Application
+
+**Option 1: Run both servers (recommended)**
+
+Terminal 1 - Start the backend server:
+```bash
+cd server
+npm run dev
+```
+Backend runs at `http://localhost:3001`
+Admin GUI at `http://localhost:3001/admin`
+
+Terminal 2 - Start the frontend:
+```bash
+npm run dev
+```
+Frontend runs at `http://localhost:5173`
+
+**Option 2: Frontend only (uses mock data)**
 ```bash
 npm run dev
 ```
 
-4. Open your browser and navigate to `http://localhost:5173`
+### Admin GUI
+
+Access the backend admin panel at `http://localhost:3001/admin` to:
+- View and edit all stats manually
+- Configure API credentials for each service
+- Trigger manual syncs
+- Monitor activity
 
 ## Project Structure
 
 ```
-src/
-├── components/
-│   ├── charts/          # Chart components (Area, Bar, Line, Pie)
-│   ├── ui/              # Reusable UI components
-│   ├── Header.jsx       # App header with search
-│   ├── Layout.jsx       # Main layout wrapper
-│   └── Sidebar.jsx      # Navigation sidebar
-├── data/
-│   └── mockData.js      # Mock data for all platforms
-├── lib/
-│   └── utils.js         # Utility functions
-├── pages/
-│   ├── Dashboard.jsx    # Main dashboard overview
-│   ├── MusicStats.jsx   # Spotify statistics
-│   ├── GamingStats.jsx  # Steam/gaming statistics
-│   ├── DevStats.jsx     # GitHub statistics
-│   ├── ChessStats.jsx   # Chess.com statistics
-│   ├── Reports.jsx      # Report generation
-│   └── Settings.jsx     # User settings
-├── App.jsx              # Main app with routing
-├── main.jsx             # App entry point
-└── index.css            # Global styles
+├── src/                      # Frontend React app
+│   ├── components/
+│   │   ├── charts/           # Chart components (Area, Bar, Line, Pie)
+│   │   ├── ui/               # Reusable UI components
+│   │   ├── Header.jsx
+│   │   ├── Layout.jsx
+│   │   └── Sidebar.jsx
+│   ├── data/
+│   │   └── mockData.js       # Fallback mock data
+│   ├── hooks/
+│   │   └── useStats.js       # API hooks with fallback
+│   ├── lib/
+│   │   └── utils.js
+│   ├── pages/
+│   │   ├── Dashboard.jsx
+│   │   ├── MusicStats.jsx
+│   │   ├── GamingStats.jsx
+│   │   ├── DevStats.jsx
+│   │   ├── ChessStats.jsx
+│   │   ├── Reports.jsx
+│   │   └── Settings.jsx
+│   ├── services/
+│   │   └── api.js            # API service layer
+│   ├── App.jsx
+│   ├── main.jsx
+│   └── index.css
+│
+├── server/                   # Backend Express server
+│   ├── data/
+│   │   └── stats.db          # SQLite database (auto-created)
+│   ├── public/
+│   │   └── admin.html        # Admin GUI
+│   ├── index.js              # Server entry point
+│   └── package.json
+│
+├── package.json              # Frontend dependencies
+├── .env.example              # Environment template
+└── README.md
 ```
 
 ## API Integration

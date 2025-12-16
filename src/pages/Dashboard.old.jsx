@@ -72,9 +72,8 @@ export default function Dashboard() {
           </div>
           <div className="grid grid-cols-2 gap-4 mb-6">
             {dashboardOverview.weeklyHighlights.map((item, index) => {
-              const platformKey = item.platform.toLowerCase().replace('.com', '')
-              const Icon = platformIcons[platformKey] || Activity
-              const colorClass = platformColors[platformKey] || 'text-primary-400 bg-primary-500/10'
+              const Icon = platformIcons[item.platform.toLowerCase()] || Activity
+              const colorClass = platformColors[item.platform.toLowerCase()] || 'text-primary-400 bg-primary-500/10'
               return (
                 <div key={index} className="bg-dark-800/50 rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-2">
